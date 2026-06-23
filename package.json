@@ -9,6 +9,8 @@
   "scripts": {
     "start": "node src/server.js",
     "sync": "node src/sync.js",
+    "verify": "node scripts/verify.js",
+    "debug:scrape": "node scripts/debug-scrape.js",
     "seed": "node seed/seed.js"
   },
   "dependencies": {

@@ -43,7 +43,7 @@ function matchScore(candidateTitles, candidateYear, name, year) {
 }
 
 // ---- TMDB ------------------------------------------------------------------
-async function lookupTmdb(name, year) {
+export async function lookupTmdb(name, year) {
   if (!config.tmdbApiKey) return null;
   const url =
     `${config.tmdbBase}/search/movie?api_key=${config.tmdbApiKey}` +
@@ -79,7 +79,7 @@ async function lookupTmdb(name, year) {
 }
 
 // ---- OMDb (IMDb) -----------------------------------------------------------
-async function lookupOmdb(name, year) {
+export async function lookupOmdb(name, year) {
   if (!config.omdbApiKey) return null;
   const url =
     `${config.omdbBase}?apikey=${config.omdbApiKey}` +
