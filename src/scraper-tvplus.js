@@ -19,10 +19,14 @@ import { config } from './config.js';
 export function cleanTitle(raw) {
   let t = String(raw || '').trim();
   // Drop "izle" and any qualifiers leading up to it, plus everything after.
+  // [iİ] covers both ASCII "i" and the Turkish dotted capital "İ" (U+0130),
+  // which the regex /i flag does NOT case-fold to "i".
   t = t.replace(
-    /\s+(full\s+)?(hd\s+)?(t[üu]rk[çc]e\s+dublaj\s+)?(alt[ıi]?yaz[ıi]l[ıi]\s+)?(tek\s+par[çc]a\s+)?izle\b.*$/i,
+    /\s+(full\s+)?(hd\s+)?(t[üu]rk[çc]e\s+dublaj\s+)?(alt[ıi]?yaz[ıi]l[ıi]\s+)?(tek\s+par[çc]a\s+)?[iİ]zle\b.*$/iu,
     ''
   );
+  // Drop a trailing "poster" / "afiş" label (comes from <img alt="… poster">).
+  t = t.replace(/\s+(poster|afi[şs])\s*$/iu, '');
   // Strip trailing site/brand fragments.
   t = t.replace(/\s*[-–|]\s*tv\+.*$/i, '');
   return t.replace(/\s{2,}/g, ' ').trim();
