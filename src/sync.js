@@ -37,7 +37,7 @@ export async function runSync({ log = console.log } = {}) {
   log('[sync] starting');
 
   try {
-    const scraped = await scrapeTvplus();
+    const scraped = await scrapeTvplus({ log });
     log(`[sync] scraped ${scraped.length} movies from TV+`);
 
     if (scraped.length === 0) {

@@ -1,11 +1,10 @@
-// Scraper for the TV+ film catalogue (tvplus.com.tr/filmler).
+// Scraper for the TV+ film catalogue (tvplus.com.tr/film-izle).
 //
-// NOTE: TV+ is a JS-heavy site and its markup may change. This scraper is
-// deliberately defensive: it tries three strategies in order and returns the
-// first that yields movies.
-//   1. Embedded JSON  (Next.js __NEXT_DATA__ / inline catalogue payloads)
-//   2. Structured movie cards (anchors to /film*/ with a poster + title)
-//   3. A loose fallback over poster images with alt text
+// The landing page only renders a curated subset, so we crawl it PLUS every
+// genre page (`/film-izle/tur/<slug>--<id>`) and union the films. Each film is
+// identified by the numeric contentId in its URL (`/film-izle/<slug>--<id>`),
+// which is a stable, unique key. Embedded-JSON / card heuristics remain as a
+// fallback if the URL pattern ever stops matching.
 //
 // Each movie is normalized to:
 //   { tvplusKey, title, year, poster, tvplusUrl, genres[] }
@@ -175,22 +174,133 @@ function pickYear(v) {
   return m ? Number(m[0]) : null;
 }
 
-/** Scrape the live TV+ catalogue. Returns a normalized, deduped movie array. */
-export async function scrapeTvplus() {
-  const html = await fetchText(config.tvplusUrl);
-  const $ = cheerio.load(html);
+// ---- Strategy 0 (primary): URL-keyed crawl ---------------------------------
+//
+// Every TV+ film links to `/film-izle/<slug>--<contentId>` and every genre to
+// `/film-izle/tur/<slug>--<genreId>`. The landing page only renders a subset of
+// the catalogue, so we also visit each genre page and union the results. The
+// numeric contentId is a stable, unique key (no title-based guessing).
+const FILM_PATH_RE = /^\/film-izle\/([a-z0-9-]+)--(\d+)\/?$/i;
+const GENRE_PATH_RE = /^\/film-izle\/tur\/([a-z0-9-]+)--(\d+)\/?$/i;
 
-  let movies = fromEmbeddedJson($);
-  if (movies.length === 0) movies = fromCards($);
+function slugToTitle(slug) {
+  return String(slug || '')
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim();
+}
 
-  // Clean titles, drop junk, then dedupe and key.
-  movies = movies
-    .map((m) => ({ ...m, title: cleanTitle(m.title) }))
-    .filter((m) => m.title && m.title.length > 1 && !looksLikeJunk(m.title));
+// Pull every film anchor and every genre-page URL out of one loaded page.
+function extractPage($) {
+  const films = [];
+  const genreUrls = new Set();
 
-  movies = dedupe(movies);
-  movies.forEach((m) => {
-    m.tvplusKey = makeKey(m.title, m.year);
+  $('a[href]').each((_, el) => {
+    const href = $(el).attr('href');
+    if (!href) return;
+    let url;
+    try {
+      url = new URL(href, config.tvplusBase || 'https://www.tvplus.com.tr');
+    } catch {
+      return;
+    }
+    const path = url.pathname;
+
+    if (GENRE_PATH_RE.test(path)) {
+      genreUrls.add(url.href.split('?')[0].split('#')[0]);
+      return;
+    }
+    const fm = path.match(FILM_PATH_RE);
+    if (!fm) return;
+
+    const $el = $(el);
+    const img = $el.find('img').first();
+    const rawTitle =
+      $el.attr('title') ||
+      $el.find('[class*="title"], h2, h3, h4').first().text() ||
+      img.attr('alt') ||
+      $el.attr('aria-label') ||
+      '';
+    films.push({
+      contentId: fm[2],
+      slug: fm[1],
+      title: cleanTitle(rawTitle),
+      poster: abs(img.attr('data-src') || img.attr('src') || img.attr('data-original')),
+      tvplusUrl: url.href.split('?')[0].split('#')[0],
+    });
   });
+
+  return { films, genreUrls: [...genreUrls] };
+}
+
+// Merge film records by contentId, keeping the best (non-junk, longest) title.
+function mergeById(records) {
+  const byId = new Map();
+  for (const r of records) {
+    const title = r.title && !looksLikeJunk(r.title) ? r.title : '';
+    const prev = byId.get(r.contentId);
+    if (!prev) {
+      byId.set(r.contentId, { ...r, title });
+    } else {
+      prev.poster ||= r.poster;
+      prev.tvplusUrl ||= r.tvplusUrl;
+      if (title && (!prev.title || title.length > prev.title.length)) prev.title = title;
+    }
+  }
+  // Ensure every film has a usable title (fall back to the URL slug).
+  const out = [];
+  for (const m of byId.values()) {
+    const title = m.title || slugToTitle(m.slug);
+    if (!title || title.length < 2) continue;
+    out.push({
+      tvplusKey: `tvplus:${m.contentId}`,
+      contentId: m.contentId,
+      title,
+      year: null, // TV+ cards don't expose a year; ratings backfill it
+      poster: m.poster || null,
+      tvplusUrl: m.tvplusUrl || null,
+      genres: [],
+    });
+  }
+  return out;
+}
+
+/**
+ * Scrape the live TV+ catalogue. Crawls the landing page plus every genre page
+ * and unions the films. Returns a normalized, deduped movie array.
+ */
+export async function scrapeTvplus({ log } = {}) {
+  const landing = cheerio.load(await fetchText(config.tvplusUrl));
+  const { films, genreUrls } = extractPage(landing);
+  const all = [...films];
+
+  if (log) log(`[scrape] landing: ${films.length} film links, ${genreUrls.length} genres`);
+
+  for (const gUrl of genreUrls) {
+    try {
+      const $g = cheerio.load(await fetchText(gUrl));
+      const got = extractPage($g).films;
+      all.push(...got);
+      if (log) log(`[scrape]   ${gUrl} -> ${got.length}`);
+    } catch (err) {
+      if (log) log(`[scrape]   ${gUrl} -> failed: ${err.message}`);
+    }
+  }
+
+  let movies = mergeById(all);
+
+  // Fallback: if the URL pattern yielded nothing (markup changed), use the
+  // older embedded-JSON / card heuristics so we still return something.
+  if (movies.length === 0) {
+    let legacy = fromEmbeddedJson(landing);
+    if (legacy.length === 0) legacy = fromCards(landing);
+    legacy = legacy
+      .map((m) => ({ ...m, title: cleanTitle(m.title) }))
+      .filter((m) => m.title && m.title.length > 1 && !looksLikeJunk(m.title));
+    movies = dedupe(legacy);
+    movies.forEach((m) => (m.tvplusKey = makeKey(m.title, m.year)));
+  }
+
+  if (log) log(`[scrape] total unique films: ${movies.length}`);
   return movies;
 }

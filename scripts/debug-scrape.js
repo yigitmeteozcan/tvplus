@@ -37,14 +37,12 @@ const apiLike = urls.filter((u) => /api|graphql|catalog|content|movie|film|vod/i
 console.log(`\n-- candidate data endpoints (${apiLike.length}) --`);
 apiLike.slice(0, 25).forEach((u) => console.log('  ' + u));
 
-const movies = await scrapeTvplus();
+console.log('\n-- crawling landing + every genre page --');
+const movies = await scrapeTvplus({ log: (m) => console.log(m) });
 console.log(`\n-- result --`);
-console.log(`unique movies after clean+dedupe: ${movies.length}`);
+console.log(`unique movies after full genre crawl: ${movies.length}`);
 console.log('first 5:', movies.slice(0, 5).map((m) => m.title));
-
 console.log(
-  '\nInterpretation:\n' +
-    '  • Small page + few films + API endpoints listed => catalogue is LAZY-LOADED;\n' +
-    '    we should scrape the API instead to get every film.\n' +
-    '  • Large page with a film count close to the result => we already have the full list.'
+  '\nIf this number is much higher than the ~189 from the landing page alone,\n' +
+    'the genre crawl is now pulling the full catalogue.'
 );
