@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TV+ Movie Tracker · Letterboxd ratings</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">TV+</span>
+        <span class="brand-text">Movie Tracker</span>
+      </div>
+      <div class="status" id="status">Loading…</div>
+      <button id="syncBtn" class="btn">Sync now</button>
+    </header>
+
+    <section class="controls">
+      <label>
+        Genre
+        <select id="genreFilter"><option value="">All genres</option></select>
+      </label>
+      <label>
+        Sort
+        <select id="sortBy">
+          <option value="rating-desc">Letterboxd rating ↓</option>
+          <option value="rating-asc">Letterboxd rating ↑</option>
+          <option value="title-asc">Title A–Z</option>
+          <option value="year-desc">Year (newest)</option>
+          <option value="year-asc">Year (oldest)</option>
+          <option value="new-first">Newly added first</option>
+        </select>
+      </label>
+      <label class="check">
+        <input type="checkbox" id="newOnly" /> New only
+      </label>
+      <span class="count" id="count"></span>
+    </section>
+
+    <main id="grid" class="grid"></main>
+    <div id="empty" class="empty" hidden></div>
+
+    <footer class="foot">
+      Posters &amp; ratings via <a href="https://letterboxd.com" target="_blank" rel="noopener">Letterboxd</a>.
+      Catalogue from <a href="https://www.tvplus.com.tr/filmler" target="_blank" rel="noopener">TV+</a>.
+      Re-scraped every 24h.
+    </footer>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

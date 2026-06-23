@@ -1,0 +1,17 @@
+{
+  "name": "tvplus-tracker",
+  "version": "1.0.0",
+  "description": "TV+ movie tracker with cached Letterboxd ratings",
+  "type": "module",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "sync": "node src/sync.js",
+    "seed": "node seed/seed.js"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0"
+  }
+}
