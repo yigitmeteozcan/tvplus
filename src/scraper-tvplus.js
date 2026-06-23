@@ -13,6 +13,31 @@ import * as cheerio from 'cheerio';
 import { fetchText } from './fetch.js';
 import { config } from './config.js';
 
+// TV+ titles often carry Turkish "watch" suffixes (e.g. "The Banker izle",
+// "... full izle", "... türkçe dublaj izle") and stray UI labels. Clean those
+// off so both the stored title and the Letterboxd query are accurate.
+export function cleanTitle(raw) {
+  let t = String(raw || '').trim();
+  // Drop "izle" and any qualifiers leading up to it, plus everything after.
+  t = t.replace(
+    /\s+(full\s+)?(hd\s+)?(t[üu]rk[çc]e\s+dublaj\s+)?(alt[ıi]?yaz[ıi]l[ıi]\s+)?(tek\s+par[çc]a\s+)?izle\b.*$/i,
+    ''
+  );
+  // Strip trailing site/brand fragments.
+  t = t.replace(/\s*[-–|]\s*tv\+.*$/i, '');
+  return t.replace(/\s{2,}/g, ' ').trim();
+}
+
+// Filter out carousel arrows, menu labels and other non-movie noise that the
+// loose card selectors can pick up.
+export function looksLikeJunk(title) {
+  const t = String(title || '').toLowerCase().trim();
+  if (t.length < 2) return true;
+  return /(^|\s)(right|left|next|previous|prev)(\s|$)|arrow|slider|carousel|\bmenu\b|\bbutton\b|daha fazla|t[üu]m[üu]n[üu]|giri[şs] yap|abone ol/.test(
+    t
+  );
+}
+
 export function normalizeTitle(title) {
   return String(title || '')
     .toLowerCase()
@@ -154,7 +179,12 @@ export async function scrapeTvplus() {
   let movies = fromEmbeddedJson($);
   if (movies.length === 0) movies = fromCards($);
 
-  movies = dedupe(movies).filter((m) => m.title && m.title.length > 1);
+  // Clean titles, drop junk, then dedupe and key.
+  movies = movies
+    .map((m) => ({ ...m, title: cleanTitle(m.title) }))
+    .filter((m) => m.title && m.title.length > 1 && !looksLikeJunk(m.title));
+
+  movies = dedupe(movies);
   movies.forEach((m) => {
     m.tvplusKey = makeKey(m.title, m.year);
   });

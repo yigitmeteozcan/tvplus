@@ -39,10 +39,21 @@ export async function fetchText(url, { retries = 3 } = {}) {
     await throttle();
     try {
       const res = await fetch(url, {
+        // A fuller set of browser-like headers helps get past Cloudflare's
+        // basic bot check (e.g. Letterboxd 403s a bare request).
         headers: {
           'User-Agent': config.userAgent,
-          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          Accept:
+            'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
           'Accept-Language': 'en-US,en;q=0.9,tr;q=0.8',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'none',
+          'Sec-Fetch-User': '?1',
+          'Upgrade-Insecure-Requests': '1',
+          'Cache-Control': 'no-cache',
+          Pragma: 'no-cache',
         },
         redirect: 'follow',
       });
