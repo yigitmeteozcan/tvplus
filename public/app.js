@@ -100,7 +100,7 @@ function card(m) {
 
   const rating =
     m.lb_rating != null
-      ? `<span class="rating"><span class="star">★</span>${m.lb_rating.toFixed(2)}</span>`
+      ? `<span class="rating" title="${escapeAttr(sourceTooltip(m))}"><span class="star">★</span>${m.lb_rating.toFixed(1)}<span class="scale">/5</span></span>`
       : `<span class="rating none">No rating</span>`;
 
   const genres = (m.genres || []).slice(0, 3).join(' · ');
@@ -119,6 +119,17 @@ function card(m) {
       ${genres ? `<div class="genres">${escapeHtml(genres)}</div>` : ''}
     </div>`;
   return el;
+}
+
+// Build a "TMDB 7.4 · IMDb 7.1" style breakdown for the rating tooltip.
+function sourceTooltip(m) {
+  const d = m.rating_detail;
+  if (!d) return 'Combined rating (/5)';
+  const labels = { tmdb: 'TMDB', imdb: 'IMDb' };
+  const parts = Object.entries(d).map(
+    ([k, v]) => `${labels[k] || k} ${v.score10}/10`
+  );
+  return parts.length ? `Combined ${m.lb_rating.toFixed(1)}/5  ·  ${parts.join('  ·  ')}` : 'Combined rating (/5)';
 }
 
 function linkAttrs(m) {

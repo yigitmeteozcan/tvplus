@@ -8,7 +8,7 @@
 // blocked), existing cached data is left intact rather than wiped.
 import {
   upsertTvplusMovie,
-  setLetterboxdData,
+  setRatingData,
   getMovieByKey,
   clearStaleNewFlags,
   ratingIsStale,
@@ -16,7 +16,7 @@ import {
   finishSyncRun,
 } from './db.js';
 import { scrapeTvplus } from './scraper-tvplus.js';
-import { lookupLetterboxd } from './scraper-letterboxd.js';
+import { lookupRating } from './ratings.js';
 import { EgressBlockedError } from './fetch.js';
 import { config } from './config.js';
 
@@ -50,6 +50,14 @@ export async function runSync({ log = console.log } = {}) {
       return { found: 0, newCount: 0, ratingsFetched: 0 };
     }
 
+    const haveProvider = Boolean(config.tmdbApiKey || config.omdbApiKey);
+    if (!haveProvider) {
+      log(
+        '[sync] WARNING: no rating provider configured. Set TMDB_API_KEY and/or ' +
+          'OMDB_API_KEY to fetch ratings (see README). Catalogue will still update.'
+      );
+    }
+
     const seenKeys = scraped.map((m) => m.tvplusKey);
     // Reset the "new" badge on movies not in this scrape, then upsert.
     clearStaleNewFlags(seenKeys);
@@ -62,15 +70,16 @@ export async function runSync({ log = console.log } = {}) {
       if (isNew) newCount += 1;
 
       const row = getMovieByKey(movie.tvplusKey);
-      if (ratingIsStale(row, config.ratingTtlMs)) {
+      if (haveProvider && ratingIsStale(row, config.ratingTtlMs)) {
         try {
-          const lb = await lookupLetterboxd(movie.title, movie.year);
-          if (lb) {
-            setLetterboxdData(id, lb);
+          const r = await lookupRating(movie.title, movie.year);
+          if (r) {
+            setRatingData(id, r);
             ratingsFetched += 1;
-            log(`[sync]   ${movie.title} -> Letterboxd ${lb.rating ?? 'n/a'}`);
+            const srcs = r.sources?.length ? ` (${r.sources.join('+')})` : '';
+            log(`[sync]   ${movie.title} -> ${r.rating ?? 'n/a'}/5${srcs}`);
           } else {
-            log(`[sync]   ${movie.title} -> no Letterboxd match`);
+            log(`[sync]   ${movie.title} -> no rating match`);
           }
         } catch (err) {
           if (err instanceof EgressBlockedError) throw err; // bubble up – stop early

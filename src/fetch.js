@@ -88,3 +88,9 @@ export async function fetchText(url, { retries = 3 } = {}) {
   }
   throw lastErr;
 }
+
+/** Fetch a URL and parse it as JSON. */
+export async function fetchJson(url, opts) {
+  const text = await fetchText(url, opts);
+  return JSON.parse(text);
+}

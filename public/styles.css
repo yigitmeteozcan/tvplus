@@ -126,6 +126,7 @@ a { color: var(--new); }
   white-space: nowrap;
 }
 .rating .star { color: var(--green); }
+.rating .scale { color: var(--muted); font-weight: 500; font-size: 11px; margin-left: 1px; }
 .rating.none { color: var(--muted); font-weight: 500; }
 
 .genres { color: var(--muted); font-size: 11px; line-height: 1.3; }
