@@ -11,8 +11,9 @@ export const config = {
   // Where the SQLite file lives.
   dbPath: process.env.DB_PATH || path.join(root, 'data', 'tvplus.db'),
 
-  // TV+ catalogue page to scrape.
-  tvplusUrl: process.env.TVPLUS_URL || 'https://www.tvplus.com.tr/filmler',
+  // TV+ catalogue page to scrape. The films listing lives at /film-izle.
+  tvplusBase: process.env.TVPLUS_BASE || 'https://www.tvplus.com.tr',
+  tvplusUrl: process.env.TVPLUS_URL || 'https://www.tvplus.com.tr/film-izle',
 
   // Letterboxd endpoints (templated by the scraper).
   letterboxdSearchUrl: 'https://letterboxd.com/search/films/',
